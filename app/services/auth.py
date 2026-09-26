@@ -1,3 +1,4 @@
+import copy
 import time
 from datetime import datetime, timezone
 from typing import TypeVar
@@ -53,7 +54,7 @@ class AuthService:
             try:
                 new_key = await bundle.auth.login(email, password)
                 if token and new_key != auth_key:
-                    existing_data = await self.get_credentials(token)
+                    existing_data = copy.deepcopy(await self.get_credentials(token))
                     if existing_data:
                         existing_data["authKey"] = new_key
                         await token_store.update_user_data(token, existing_data)

@@ -1,3 +1,4 @@
+import copy
 from typing import Any
 
 from loguru import logger
@@ -489,7 +490,7 @@ class ProfileService:
             return None
 
         try:
-            credentials = await token_store.get_user_data(token)
+            credentials = copy.deepcopy(await token_store.get_user_data(token))
             if credentials:
                 settings_dict = credentials.get("settings") or {}
                 settings_dict["trakt_access_token"] = new_access
@@ -513,7 +514,7 @@ class ProfileService:
         from app.services.token_store import token_store
 
         try:
-            credentials = await token_store.get_user_data(token)
+            credentials = copy.deepcopy(await token_store.get_user_data(token))
             if not credentials:
                 return
             settings_dict = credentials.get("settings") or {}
