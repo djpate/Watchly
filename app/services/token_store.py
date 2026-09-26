@@ -1,4 +1,5 @@
 import base64
+import copy
 import json
 import secrets
 from typing import Any
@@ -111,8 +112,9 @@ class TokenStore:
         self._ensure_secure_salt()
         key = self._format_key(token)
 
-        # Prepare data for storage (Plain JSON, no encryption needed)
-        storage_data = payload.copy()
+        # Deep: the secrets below are encrypted in place, and the caller's dict has to
+        # come back as it went in (it may be the one get_user_data() shares).
+        storage_data = copy.deepcopy(payload)
 
         if storage_data.get("authKey"):
             storage_data["authKey"] = self.encrypt_token(storage_data["authKey"])
