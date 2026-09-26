@@ -102,6 +102,12 @@ class TraktService:
             return_exceptions=True,
         )
 
+        # One failed endpoint still leaves a usable history. If every one failed there
+        # is no history at all: raise, so it isn't cached as an empty one and a 401
+        # reaches the caller's token refresh.
+        if all(isinstance(result, Exception) for result in results):
+            raise results[0]
+
         watched_movies = self._safe_list(results[0], "watched/movies")
         watched_shows = self._safe_list(results[1], "watched/shows")
         rated_movies = self._safe_list(results[2], "ratings/movies")

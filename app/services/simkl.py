@@ -148,6 +148,11 @@ class SimklService:
             return_exceptions=True,
         )
 
+        # One failed endpoint still leaves a usable history; both failing means there
+        # is none, and returning it empty would get it cached as the user's.
+        if all(isinstance(result, Exception) for result in results):
+            raise results[0]
+
         items: list[WatchHistoryItem] = []
         seen: set[str] = set()
 

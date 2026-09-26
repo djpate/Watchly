@@ -1,7 +1,9 @@
 from typing import Any
 
+import httpx
 from loguru import logger
 
+from app.core.security import redact_token
 from app.core.settings import UserSettings
 from app.models.history import WatchHistory
 from app.models.library import LibraryCollection
@@ -255,8 +257,6 @@ class ProfileService:
         fall back. token_revoked=True implies the stored credential has been
         cleared from the user record by `_clear_revoked_token`.
         """
-        import httpx
-
         watch_history: WatchHistory | None = None
         token_missing = False
         token_revoked = False
@@ -276,7 +276,7 @@ class ProfileService:
                 except httpx.HTTPStatusError as e:
                     if e.response.status_code == 401 and user_settings.trakt_refresh_token and token:
                         logger.info(f"[{token[:8]}...] Trakt 401 on get_history; attempting reactive refresh.")
-                        refreshed = await self._refresh_trakt_token(token, user_settings.trakt_refresh_token)
+                        refreshed, rejected = await self._refresh_trakt_token(token, user_settings.trakt_refresh_token)
                         if refreshed:
                             try:
                                 watch_history = await trakt_service.get_history(refreshed)
@@ -293,9 +293,13 @@ class ProfileService:
                                         f"{retry_e.response.status_code}: {retry_e})."
                                     )
                                 watch_history = None
-                        else:
+                        elif rejected:
                             token_revoked = True
                             logger.error("Trakt refresh failed; clearing stored token. User must reconnect Trakt.")
+                        else:
+                            logger.warning(
+                                f"[{redact_token(token)}] Trakt refresh unavailable; keeping the stored token"
+                            )
                     elif e.response.status_code in (401, 403):
                         token_revoked = True
                         logger.error(
@@ -456,15 +460,17 @@ class ProfileService:
             return access_token, False
 
         logger.info(f"[{token[:8]}...] Trakt token within refresh window; refreshing proactively.")
-        refreshed = await self._refresh_trakt_token(token, user_settings.trakt_refresh_token)
+        refreshed, _ = await self._refresh_trakt_token(token, user_settings.trakt_refresh_token)
         if refreshed:
             return refreshed, True
         return access_token, False
 
-    async def _refresh_trakt_token(self, token: str, refresh_token: str) -> str | None:
+    async def _refresh_trakt_token(self, token: str, refresh_token: str) -> tuple[str | None, bool]:
         """Refresh a Trakt access token and persist the new tokens.
 
-        Returns the new access token on success, None on failure.
+        Returns (new_access_token, rejected). The token is None on any failure, and
+        rejected is True only when Trakt refused the refresh token itself, so an
+        outage or a network error is never mistaken for a dead credential.
         """
         import time as _time
 
@@ -475,9 +481,13 @@ class ProfileService:
         redirect_uri = f"{app_settings.HOST_NAME}/auth/trakt/callback"
         try:
             data = await trakt_service.refresh_token(refresh_token, redirect_uri)
+        except httpx.HTTPStatusError as e:
+            status = e.response.status_code
+            logger.warning(f"[{redact_token(token)}] Trakt refresh_token call failed (HTTP {status})")
+            return None, status in (400, 401, 403)
         except Exception as e:
-            logger.warning(f"[{token[:8]}...] Trakt refresh_token call failed: {e}")
-            return None
+            logger.warning(f"[{redact_token(token)}] Trakt refresh_token call failed: {type(e).__name__}")
+            return None, False
 
         new_access = data.get("access_token") or ""
         new_refresh = data.get("refresh_token") or refresh_token
@@ -486,7 +496,7 @@ class ProfileService:
         new_expires_at = created_at + expires_in if expires_in else 0
         if not new_access:
             logger.warning(f"[{token[:8]}...] Trakt refresh returned no access_token.")
-            return None
+            return None, False
 
         try:
             credentials = await token_store.get_user_data(token)
@@ -501,7 +511,7 @@ class ProfileService:
         except Exception as e:
             logger.warning(f"[{token[:8]}...] Failed to persist refreshed Trakt token: {e}")
 
-        return new_access
+        return new_access, False
 
     async def _clear_revoked_token(self, token: str, source: str) -> None:
         """Wipe a revoked external-source token from stored credentials.
