@@ -68,9 +68,10 @@ class ManifestService:
         source = user_settings.watch_history_source
         logger.info(f"[{redact_token(token)}] Fetching library items from '{source}' for caching")
         library_items = await fetch_library_for_source(source, user_settings, token, bundle, auth_key)
-        if library_items is None:
-            # Caching an empty library here would replace the user's real one and
-            # empty every row until the next successful fetch.
+        # A failed fetch, or the Stremio library fetch_library_for_source falls back to
+        # when Trakt or Simkl is down, would replace the user's real library until the
+        # next good fetch.
+        if library_items is None or library_items.source != source:
             logger.warning(f"[{redact_token(token)}] Library fetch from '{source}' failed; not caching it")
             return LibraryCollection()
         await user_cache.set_library_items(token, library_items)

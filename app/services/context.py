@@ -99,7 +99,10 @@ async def load_user_context(
         library = cached
         if not library:
             library = await fetch_library_for_source(configured_source, user_settings, token, bundle, auth_key)
-            if library is not None:
+            # The Stremio fallback for a failed Trakt or Simkl fetch still serves this
+            # request. Cached, the next request would see the source mismatch above and
+            # drop it again, wiping every cached row each time.
+            if library is not None and library.source == configured_source:
                 await user_cache.set_library_items(token, library)
 
         if not library:
