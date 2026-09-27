@@ -164,6 +164,20 @@ class RecommendationMetadata:
         details_list = await asyncio.gather(*tasks, return_exceptions=True)
         details_list = [d for d in details_list if d and not isinstance(d, Exception)]
 
+        # Candidates were filtered on original_language, which TMDB sometimes gets
+        # wrong (a Spanish-language film listed as "en"). The details carry the spoken
+        # languages; with none listed, fall back to the original one, and keep a title
+        # with neither, since nothing rules it out.
+        if user_settings and user_settings.allowed_languages:
+            allowed = set(user_settings.allowed_languages)
+
+            def speaks_an_allowed_language(d: dict[str, Any]) -> bool:
+                spoken = {lang.get("iso_639_1") for lang in d.get("spoken_languages") or []} - {None}
+                languages = spoken or {d.get("original_language")} - {None}
+                return not languages or bool(languages & allowed)
+
+            details_list = [d for d in details_list if speaks_an_allowed_language(d)]
+
         language = getattr(user_settings, "language", None) or "en-US"
         mt = "movie" if media_type == "movie" else "tv"
 
