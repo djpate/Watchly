@@ -260,6 +260,25 @@ def apply_discover_filters(params: dict[str, Any], user_settings: Any) -> dict[s
     return params
 
 
+def is_in_allowed_language(item: dict[str, Any], allowed_languages: list[str]) -> bool:
+    """Whether a TMDB title can be watched in one of allowed_languages; any can when it's empty.
+
+    Its original language must be allowed, so a Korean film with a few lines of English
+    stays out. Full details also list the spoken languages, and one of those must be
+    allowed too, which catches a wrong label (a Spanish-language film listed as "en").
+    A film without dialogue passes whatever its original language.
+    """
+    if not allowed_languages:
+        return True
+    spoken = {language.get("iso_639_1") for language in item.get("spoken_languages") or []} - {None}
+    if spoken == {NO_LANGUAGE}:
+        return True
+    original = item.get("original_language")
+    if original and original not in (*allowed_languages, NO_LANGUAGE):
+        return False
+    return not spoken or not spoken.isdisjoint(allowed_languages)
+
+
 def filter_items_by_settings(
     items: list[dict[str, Any]], user_settings: Any, apply_quality_band: bool = True
 ) -> list[dict[str, Any]]:
@@ -287,16 +306,11 @@ def filter_items_by_settings(
         "lte": lambda x, y: x <= y,
     }
 
-    allowed_languages = set(user_settings.allowed_languages)
-    if allowed_languages:
-        allowed_languages.add(NO_LANGUAGE)
-
     filtered = []
     for item in items:
-        # Candidates carry only original_language, which TMDB sometimes gets wrong;
-        # metadata.fetch_batch checks the spoken languages once details are fetched.
-        language = item.get("original_language")
-        if allowed_languages and language and language not in allowed_languages:
+        # Candidates carry only original_language; metadata.fetch_batch checks again
+        # once the details, with their spoken languages, are fetched.
+        if not is_in_allowed_language(item, user_settings.allowed_languages):
             continue
 
         release_date = item.get("release_date") or item.get("first_air_date") or item.get("released")

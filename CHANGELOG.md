@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Added
+
+- "Only recommend in" on the configure page: tick languages, and every row only recommends titles in them. A title's original language must be ticked and so must one of its spoken languages, which catches titles TMDB labels wrongly. Films without dialogue pass whatever their original language. Nothing ticked means any language, as before.
+
 ### Changed
 
 - After the scheduled catalog refresh, the home-screen rows are rebuilt straight away, so the next home screen doesn't wait on rows the refresh dropped.
