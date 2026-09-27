@@ -136,7 +136,10 @@ class CatalogUpdater:
                     else:
                         stored = copy.deepcopy(stored)
                         stored["last_updated"] = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
-                        await token_store.update_user_data(token, stored)
+                        # Only the timestamp changes, so keep the manifest just pushed:
+                        # rebuilding it would re-pick every slot under the names Stremio
+                        # now shows and drop the rows warmed below.
+                        await token_store.update_user_data(token, stored, settings_changed=False)
                         logger.debug(f"[{redact_token(token)}] Updated last_updated timestamp")
                 except Exception as e:
                     logger.warning(f"[{redact_token(token)}] Failed to update timestamp: {e}")
