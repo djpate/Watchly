@@ -9,6 +9,8 @@ from app.core.constants import DISCOVER_ONLY_EXTRA
 from app.core.settings import CatalogConfig, LLMConfig, UserSettings, resolve_llm_config
 from app.models.library import LibraryCollection
 from app.services.profile.service import ProfileService
+from app.services.recommendation.filtering import RecommendationFiltering
+from app.services.recommendation.utils import resolve_tmdb_id
 from app.services.row_generator import RowGeneratorService
 from app.services.tmdb.service import get_tmdb_service
 from app.services.user_cache import user_cache
@@ -94,9 +96,9 @@ class DynamicCatalogService:
     def __init__(self, language: str = "en-US", tmdb_api_key: str | None = None):
         self.language = language
         self.tmdb_api_key = tmdb_api_key
-        tmdb_service = get_tmdb_service(language=language, api_key=tmdb_api_key)
+        self.tmdb_service = get_tmdb_service(language=language, api_key=tmdb_api_key)
         self.profile_service = ProfileService(language=language, tmdb_api_key=tmdb_api_key)
-        self.row_generator = RowGeneratorService(tmdb_service=tmdb_service)
+        self.row_generator = RowGeneratorService(tmdb_service=self.tmdb_service)
 
     @staticmethod
     def normalize_type(type_: str) -> str:
@@ -174,7 +176,7 @@ class DynamicCatalogService:
             catalogs.extend(theme_catalogs)
 
         for mtype in ["movie", "series"]:
-            await self._add_item_based_rows(catalogs, library_items, mtype, item_cfg, row_slots)
+            await self._add_item_based_rows(catalogs, library_items, mtype, item_cfg, row_slots, user_settings)
 
         catalogs.extend(get_catalogs_from_config(user_settings, "watchly.rec", "Top Picks for You", True, True))
         catalogs.extend(
@@ -319,6 +321,16 @@ class DynamicCatalogService:
 
         return theme, item
 
+    async def _genre_ids(self, item_id: str, content_type: str) -> set[int]:
+        tmdb_id = await resolve_tmdb_id(item_id, self.tmdb_service)
+        if not tmdb_id:
+            return set()
+        if content_type == "movie":
+            details = await self.tmdb_service.get_movie_details(tmdb_id)
+        else:
+            details = await self.tmdb_service.get_tv_details(tmdb_id)
+        return {genre["id"] for genre in details.get("genres", [])}
+
     def _parse_item_last_watched(self, item) -> datetime:
         from app.models.library import StremioLibraryItem
 
@@ -357,6 +369,7 @@ class DynamicCatalogService:
         content_type: str,
         item_config: Any,
         row_slots: dict[str, dict[str, str]],
+        user_settings: UserSettings,
     ) -> None:
         """Emit `item_config.rows` item-based rows per content type.
 
@@ -386,6 +399,18 @@ class DynamicCatalogService:
         # the actual pick rather than re-checking flags after the fact.
         candidates: list[tuple[Any, bool]] = [(i, True) for i in loved_pool]
         candidates += [(i, False) for i in watched_pool]
+
+        # A seed in an excluded genre yields a row of that genre, which the exclusion
+        # then filters to nothing. A seed whose genres can't be looked up stays.
+        excluded = set(RecommendationFiltering.get_excluded_genre_ids(user_settings, content_type))
+        if excluded:
+            genres = await asyncio.gather(
+                *(self._genre_ids(item.id, content_type) for item, _ in candidates), return_exceptions=True
+            )
+            unknown = sum(isinstance(g, Exception) for g in genres)
+            if unknown:
+                logger.warning(f"Could not look up the genres of {unknown} {content_type} seed(s); keeping them")
+            candidates = [c for c, g in zip(candidates, genres) if isinstance(g, Exception) or not excluded & g]
 
         if not candidates:
             return
