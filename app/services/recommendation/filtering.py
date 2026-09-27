@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Any
 from urllib.parse import unquote
 
-from app.core.constants import DISCOVERY_SETTINGS
+from app.core.constants import DISCOVERY_SETTINGS, NO_LANGUAGE
 from app.core.settings import DEFAULT_YEAR_MIN, get_current_year
 from app.models.library import LibraryCollection
 
@@ -255,7 +255,7 @@ def apply_discover_filters(params: dict[str, Any], user_settings: Any) -> dict[s
 
     # A pipe is OR for this filter; a comma would be AND and match nothing.
     if user_settings.allowed_languages:
-        params["with_original_language"] = "|".join(user_settings.allowed_languages)
+        params["with_original_language"] = "|".join([*user_settings.allowed_languages, NO_LANGUAGE])
 
     return params
 
@@ -288,6 +288,8 @@ def filter_items_by_settings(
     }
 
     allowed_languages = set(user_settings.allowed_languages)
+    if allowed_languages:
+        allowed_languages.add(NO_LANGUAGE)
 
     filtered = []
     for item in items:

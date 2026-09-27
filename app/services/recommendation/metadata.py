@@ -3,7 +3,7 @@ from typing import Any
 
 from loguru import logger
 
-from app.core.constants import DEFAULT_CONCURRENCY_LIMIT
+from app.core.constants import DEFAULT_CONCURRENCY_LIMIT, NO_LANGUAGE
 from app.services.poster_ratings.factory import PosterProvider, poster_ratings_factory
 
 
@@ -169,7 +169,7 @@ class RecommendationMetadata:
         # languages; with none listed, fall back to the original one, and keep a title
         # with neither, since nothing rules it out.
         if user_settings and user_settings.allowed_languages:
-            allowed = set(user_settings.allowed_languages)
+            allowed = set(user_settings.allowed_languages) | {NO_LANGUAGE}
 
             def speaks_an_allowed_language(d: dict[str, Any]) -> bool:
                 spoken = {lang.get("iso_639_1") for lang in d.get("spoken_languages") or []} - {None}

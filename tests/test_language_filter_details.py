@@ -62,3 +62,8 @@ def test_every_title_is_kept_without_allowed_languages():
 
     assert enriched_ids(titles, []) == [1, 2]
     assert enriched_ids(titles, None) == [1, 2]
+
+
+def test_a_film_without_dialogue_passes_any_language_filter():
+    """TMDB marks silent films "xx" (no language); there is no language barrier to filter on."""
+    assert enriched_ids([details(1, "fr", ["xx"]), details(2, "xx", [])], ["en"]) == [1, 2]

@@ -42,6 +42,9 @@ MANIFEST_CACHE_TTL_SECONDS: int = 86400
 USER_CACHE_TTL_SECONDS: int = 60 * 60 * 24 * 90  # 90 days
 
 
+# TMDB's language code for a title with no dialogue: never a reason to filter it out.
+NO_LANGUAGE: str = "xx"
+
 DISCOVER_ONLY_EXTRA: list[dict] = [{"name": "genre", "isRequired": True, "options": ["All"], "optionsLimit": 1}]
 
 
