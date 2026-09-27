@@ -18,7 +18,7 @@ def test_discover_asks_tmdb_for_the_allowed_languages_only():
     """TMDB reads a pipe as OR here; a comma would mean AND and return nothing."""
     params = apply_discover_filters({"with_genres": "35"}, settings("en", "fr"))
 
-    assert params["with_original_language"] == "en|fr"
+    assert params["with_original_language"] == "en|fr|xx"
 
 
 def test_discover_is_unrestricted_without_allowed_languages():
@@ -42,3 +42,8 @@ def test_every_language_passes_without_allowed_languages():
     items = [candidate(1, "en"), candidate(2, "es"), candidate(3, "ko")]
 
     assert [item["id"] for item in filter_items_by_settings(items, settings())] == [1, 2, 3]
+
+
+def test_a_film_without_dialogue_is_not_a_foreign_film():
+    """TMDB marks silent films "xx"; they belong in every language's results."""
+    assert [i["id"] for i in filter_items_by_settings([candidate(1, "xx")], settings("en"))] == [1]
