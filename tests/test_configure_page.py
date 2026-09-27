@@ -44,3 +44,22 @@ def test_static_files_require_revalidation():
     assert response.status_code == 200
     assert response.headers["Cache-Control"] == "no-cache"
     assert "etag" in response.headers
+
+
+def test_configure_page_offers_the_content_languages(monkeypatch):
+    async def fake_fetch_languages_list():
+        return [{"iso_639_1": "en-US", "language": "English", "country": "US"}]
+
+    async def fake_count_users():
+        return 7
+
+    monkeypatch.setattr(app_module, "fetch_languages_list", fake_fetch_languages_list)
+    monkeypatch.setattr(app_module.token_store, "count_users", fake_count_users)
+
+    response = client.get("/configure")
+
+    assert response.status_code == 200
+    html = response.text
+    assert 'id="contentLanguageList"' in html
+    assert '{"id": "en", "name": "English"}' in html
+    assert '{"id": "fr", "name": "French"}' in html

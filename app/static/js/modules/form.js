@@ -11,7 +11,7 @@ import {
 } from './field-helpers.js';
 import { initializeSuccessActions, showSuccessSection } from './form-success.js';
 import { initializeYearSliderControl } from './year-slider.js';
-import { MOVIE_GENRES, SERIES_GENRES } from '../constants.js';
+import { CONTENT_LANGUAGES, MOVIE_GENRES, SERIES_GENRES } from '../constants.js';
 import { setProviderConnected } from './accounts.js';
 import { getPreparedStremioProfiles, recallProviderAccount } from './auth.js';
 
@@ -24,6 +24,7 @@ let emailInput = null;
 let passwordInput = null;
 let languageSelect = null;
 let movieGenreList = null;
+let contentLanguageList = null;
 let seriesGenreList = null;
 let appState = null;
 let resetApp = null;
@@ -37,6 +38,7 @@ export function initializeForm(domElements, state, actions) {
     languageSelect = domElements.languageSelect;
     movieGenreList = domElements.movieGenreList;
     seriesGenreList = domElements.seriesGenreList;
+    contentLanguageList = domElements.contentLanguageList;
     appState = state;
     resetApp = actions.resetApp;
 
@@ -97,6 +99,7 @@ function getRequestPayload() {
         llm_model: document.getElementById('llmModel')?.value.trim() || '',
         excluded_movie_genres: Array.from(document.querySelectorAll('input[name="movie-genre"]:checked')).map(cb => cb.value),
         excluded_series_genres: Array.from(document.querySelectorAll('input[name="series-genre"]:checked')).map(cb => cb.value),
+        allowed_languages: Array.from(document.querySelectorAll('input[name="content-language"]:checked')).map(cb => cb.value),
         watch_history_source: document.getElementById('watchHistorySource')?.value || 'stremio',
     };
 }
@@ -138,6 +141,7 @@ function buildTokenPayload(formData) {
             : undefined,
         excluded_movie_genres: formData.excluded_movie_genres,
         excluded_series_genres: formData.excluded_series_genres,
+        allowed_languages: formData.allowed_languages,
         watch_history_source: formData.watch_history_source,
         trakt_access_token: window._watchlyOAuth?.trakt?.access_token || undefined,
         trakt_refresh_token: window._watchlyOAuth?.trakt?.refresh_token || undefined,
@@ -279,6 +283,7 @@ function initializeFormSubmission() {
 function initializeGenreLists() {
     renderGenreList(movieGenreList, MOVIE_GENRES, 'movie-genre');
     renderGenreList(seriesGenreList, SERIES_GENRES, 'series-genre');
+    renderGenreList(contentLanguageList, CONTENT_LANGUAGES, 'content-language');
 }
 
 function renderGenreList(container, genres, namePrefix) {
