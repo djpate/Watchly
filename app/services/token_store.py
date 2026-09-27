@@ -108,7 +108,7 @@ class TokenStore:
         await self._set_with_token_ttl(f"{self.ALIAS_KEY_PREFIX}{absorbed_token}", surviving_token)
         await self.delete_token(absorbed_token)
 
-    async def store_user_data(self, token: str, payload: dict[str, Any]) -> str:
+    async def store_user_data(self, token: str, payload: dict[str, Any], *, settings_changed: bool = True) -> str:
         self._ensure_secure_salt()
         key = self._format_key(token)
 
@@ -213,10 +213,11 @@ class TokenStore:
 
         # Settings changes alter the catalog list, so a cached manifest built from
         # the old settings must not survive the write.
-        try:
-            await user_cache.invalidate_manifest(token)
-        except Exception as e:
-            logger.warning(f"Failed to invalidate manifest for {redact_token(token)}: {e}")
+        if settings_changed:
+            try:
+                await user_cache.invalidate_manifest(token)
+            except Exception as e:
+                logger.warning(f"Failed to invalidate manifest for {redact_token(token)}: {e}")
 
         # Invalidate async LRU cache for fresh reads on subsequent requests
         try:
@@ -232,14 +233,14 @@ class TokenStore:
 
         return token
 
-    async def update_user_data(self, token: str, payload: dict[str, Any]) -> str:
+    async def update_user_data(self, token: str, payload: dict[str, Any], *, settings_changed: bool = True) -> str:
         """Update user data by token. This is a convenience wrapper around store_user_data.
 
         Resolves merge aliases first so writes through an absorbed token land on
         the surviving account instead of resurrecting the absorbed one.
         """
         token = await self.resolve_alias(token)
-        return await self.store_user_data(token, payload)
+        return await self.store_user_data(token, payload, settings_changed=settings_changed)
 
     async def _migrate_poster_rating_format_raw(self, token: str, redis_key: str, data: dict) -> dict | None:
         """Migrate old rpdb_key format to new poster_rating format in raw Redis data if needed."""
