@@ -67,3 +67,15 @@ def test_every_title_is_kept_without_allowed_languages():
 def test_a_film_without_dialogue_passes_any_language_filter():
     """TMDB marks silent films "xx" (no language); there is no language barrier to filter on."""
     assert enriched_ids([details(1, "fr", ["xx"]), details(2, "xx", [])], ["en"]) == [1, 2]
+
+
+def test_a_title_in_another_original_language_is_dropped_despite_a_few_allowed_lines():
+    """Parasite is Korean, with a few lines of English. Discover and candidate filtering drop it
+    on original_language; the creators and Simkl rows only reach this check."""
+    parasite = details(496243, "ko", ["en", "de", "ko"])
+
+    assert enriched_ids([parasite], ["en", "fr"]) == []
+
+
+def test_no_dialogue_listed_beside_another_language_lets_nothing_through():
+    assert enriched_ids([details(1, "en", ["es", "xx"])], ["en", "fr"]) == []

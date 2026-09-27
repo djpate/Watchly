@@ -3,8 +3,9 @@ from typing import Any
 
 from loguru import logger
 
-from app.core.constants import DEFAULT_CONCURRENCY_LIMIT, NO_LANGUAGE
+from app.core.constants import DEFAULT_CONCURRENCY_LIMIT
 from app.services.poster_ratings.factory import PosterProvider, poster_ratings_factory
+from app.services.recommendation.filtering import is_in_allowed_language
 
 
 class RecommendationMetadata:
@@ -164,19 +165,10 @@ class RecommendationMetadata:
         details_list = await asyncio.gather(*tasks, return_exceptions=True)
         details_list = [d for d in details_list if d and not isinstance(d, Exception)]
 
-        # Candidates were filtered on original_language, which TMDB sometimes gets
-        # wrong (a Spanish-language film listed as "en"). The details carry the spoken
-        # languages; with none listed, fall back to the original one, and keep a title
-        # with neither, since nothing rules it out.
-        if user_settings and user_settings.allowed_languages:
-            allowed = set(user_settings.allowed_languages) | {NO_LANGUAGE}
-
-            def speaks_an_allowed_language(d: dict[str, Any]) -> bool:
-                spoken = {lang.get("iso_639_1") for lang in d.get("spoken_languages") or []} - {None}
-                languages = spoken or {d.get("original_language")} - {None}
-                return not languages or bool(languages & allowed)
-
-            details_list = [d for d in details_list if speaks_an_allowed_language(d)]
+        # The creators and Simkl rows reach this with no language check yet, and the
+        # others were checked on original_language alone; the details add the spoken ones.
+        if user_settings:
+            details_list = [d for d in details_list if is_in_allowed_language(d, user_settings.allowed_languages)]
 
         language = getattr(user_settings, "language", None) or "en-US"
         mt = "movie" if media_type == "movie" else "tv"
