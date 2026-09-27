@@ -106,6 +106,8 @@ class UserSettings(BaseModel):
     poster_rating: PosterRatingConfig | None = Field(default=None, description="Poster rating provider configuration")
     excluded_movie_genres: list[str] = Field(default_factory=list)
     excluded_series_genres: list[str] = Field(default_factory=list)
+    # Original/spoken language codes to recommend; empty recommends every language.
+    allowed_languages: list[str] = Field(default_factory=list)
     year_min: int = Field(default=DEFAULT_YEAR_MIN, description="Minimum release year")
     year_max: int = Field(default_factory=get_default_year_max, description="Maximum release year")
     popularity: Literal["mainstream", "balanced", "gems", "all"] = Field(

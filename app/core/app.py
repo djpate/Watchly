@@ -18,6 +18,7 @@ from app.core.security import STORED_SECRET_SENTINEL
 from app.core.settings import MAX_ITEM_ROWS, get_current_year, get_default_catalogs_for_frontend, get_default_year_range
 from app.services.redis_service import redis_service
 from app.services.tmdb.genre import movie_genres, series_genres
+from app.services.tmdb.language import content_languages
 from app.services.token_store import token_store
 
 from .config import settings
@@ -115,6 +116,7 @@ async def configure_page(request: Request, _token: str | None = None):
     # Format genres for frontend
     movie_genres_list = [{"id": str(id), "name": name} for id, name in movie_genres.items()]
     series_genres_list = [{"id": str(id), "name": name} for id, name in series_genres.items()]
+    content_languages_list = [{"id": code, "name": name} for code, name in content_languages.items()]
 
     template = jinja_env.get_template("index.html")
     html_content = template.render(
@@ -131,6 +133,7 @@ async def configure_page(request: Request, _token: str | None = None):
         stored_secret_sentinel=STORED_SECRET_SENTINEL,
         movie_genres=movie_genres_list,
         series_genres=series_genres_list,
+        content_languages=content_languages_list,
         allow_signups=settings.ALLOW_SIGNUPS,
     )
     return HTMLResponse(content=html_content, media_type="text/html")

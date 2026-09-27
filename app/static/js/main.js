@@ -16,6 +16,7 @@ const configForm = document.getElementById('configForm');
 const catalogList = document.getElementById('catalogList');
 const movieGenreList = document.getElementById('movieGenreList');
 const seriesGenreList = document.getElementById('seriesGenreList');
+const contentLanguageList = document.getElementById('contentLanguageList');
 const submitBtn = document.getElementById('submitBtn');
 const stremioLoginBtn = document.getElementById('stremioLoginBtn');
 const stremioLoginText = document.getElementById('stremioLoginText');
@@ -118,7 +119,8 @@ document.addEventListener('DOMContentLoaded', () => {
             passwordInput,
             languageSelect,
             movieGenreList,
-            seriesGenreList
+            seriesGenreList,
+            contentLanguageList
         },
         appState,
         { resetApp }

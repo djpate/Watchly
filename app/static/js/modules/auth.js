@@ -612,6 +612,11 @@ async function fetchIdentity(payload) {
                 if (cb) cb.checked = true;
             });
 
+            // Languages (Checked = Allowed)
+            document.querySelectorAll('input[name="content-language"]').forEach(cb => {
+                cb.checked = (s.allowed_languages || []).includes(cb.value);
+            });
+
             // Catalogs
             if (s.catalogs && Array.isArray(s.catalogs)) {
                 const catalogs = appState ? appState.catalogs : [];

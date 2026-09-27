@@ -253,6 +253,10 @@ def apply_discover_filters(params: dict[str, Any], user_settings: Any) -> dict[s
         if key in TMDB_DISCOVER_FILTER_KEYS:
             params.setdefault(key, value)
 
+    # A pipe is OR for this filter; a comma would be AND and match nothing.
+    if user_settings.allowed_languages:
+        params["with_original_language"] = "|".join(user_settings.allowed_languages)
+
     return params
 
 
@@ -283,8 +287,16 @@ def filter_items_by_settings(
         "lte": lambda x, y: x <= y,
     }
 
+    allowed_languages = set(user_settings.allowed_languages)
+
     filtered = []
     for item in items:
+        # Candidates carry only original_language, which TMDB sometimes gets wrong;
+        # metadata.fetch_batch checks the spoken languages once details are fetched.
+        language = item.get("original_language")
+        if allowed_languages and language and language not in allowed_languages:
+            continue
+
         release_date = item.get("release_date") or item.get("first_air_date") or item.get("released")
         if release_date:
             try:
