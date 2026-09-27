@@ -1,6 +1,6 @@
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StringConstraints
 
 from app.core.settings import DEFAULT_YEAR_MIN, CatalogConfig, LLMConfig, PosterRatingConfig, get_default_year_max
 
@@ -16,6 +16,9 @@ class TokenRequest(BaseModel):
     poster_rating: PosterRatingConfig | None = Field(default=None, description="Poster rating provider configuration")
     excluded_movie_genres: list[str] = Field(default_factory=list, description="List of movie genre IDs to exclude")
     excluded_series_genres: list[str] = Field(default_factory=list, description="List of series genre IDs to exclude")
+    allowed_languages: list[Annotated[str, StringConstraints(pattern=r"^[a-z]{2}$")]] = Field(
+        default_factory=list, description="ISO 639-1 codes of the languages to recommend; empty allows all"
+    )
     popularity: Literal["mainstream", "balanced", "gems", "all"] = Field(
         default="balanced", description="Popularity for TMDB API"
     )
