@@ -20,6 +20,10 @@ from app.services.user_cache import user_cache
 class ManifestService:
     """Service for generating Stremio manifest files."""
 
+    def __init__(self) -> None:
+        # Retained so a background push isn't garbage collected mid-flight.
+        self._push_tasks: set[asyncio.Task] = set()
+
     @staticmethod
     def get_base_manifest() -> dict[str, Any]:
         """Get the base manifest structure."""
@@ -147,7 +151,27 @@ class ManifestService:
             base_manifest["catalogs"] = sorted_catalogs
 
         await user_cache.set_manifest(token, base_manifest)
+
+        # Stremio labels rows from the catalog list saved in the user's addon
+        # collection, but fetches each row by its slot id here, and every rebuild
+        # re-picks what the slots hold. Unless the new list reaches Stremio, the TV
+        # shows each row under another row's name. The scheduled refresh pushes its
+        # own rebuilds; a failed dynamic build must not push the empty list.
+        if not force_rebuild and ctx.auth_key and fetched_catalogs:
+            task = asyncio.create_task(self._push_row_names(token, ctx.auth_key, base_manifest["catalogs"]))
+            self._push_tasks.add(task)
+            task.add_done_callback(self._push_tasks.discard)
+
         return base_manifest
+
+    async def _push_row_names(self, token: str, auth_key: str, catalogs: list[dict[str, Any]]) -> None:
+        bundle = StremioBundle()
+        try:
+            await bundle.addons.update_catalogs(auth_key, catalogs)
+        except Exception as e:
+            logger.warning(f"[{redact_token(token)}] Could not push the new row names to Stremio: {type(e).__name__}")
+        finally:
+            await bundle.close()
 
     @staticmethod
     def _profiled_addon_name(profile_name: str) -> str:
