@@ -3,7 +3,7 @@ import asyncio
 import pytest
 from pydantic import ValidationError
 
-from app.core.settings import MAX_ITEM_ROWS, CatalogConfig
+from app.core.settings import MAX_ITEM_ROWS, CatalogConfig, UserSettings
 from app.models.library import LibraryCollection, StremioLibraryItem
 from app.services.catalog_definitions import DynamicCatalogService
 from app.services.recommendation.catalog_service import catalog_service
@@ -131,7 +131,8 @@ def item_rows(rows: int, loved: int, watched: int) -> tuple[list[dict], dict[str
     catalogs: list[dict] = []
     row_slots: dict[str, dict[str, str]] = {}
     service = DynamicCatalogService()
-    asyncio.run(service._add_item_based_rows(catalogs, library, "movie", config, row_slots))
+    settings = UserSettings(catalogs=[config])
+    asyncio.run(service._add_item_based_rows(catalogs, library, "movie", config, row_slots, settings))
     return catalogs, row_slots
 
 
